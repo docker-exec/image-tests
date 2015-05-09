@@ -1,35 +1,56 @@
+#!/bin/bash
+
+declare -a headers
+
 function get_headers() {
     local url="${1}"
-    local headers=$(curl -sIL "${url}" | grep ':')
-    echo "${headers[@]}"
+    headers=("$(curl -sIL "${url}" | grep ':')")
 }
 
 function get_header() {
-    local needle="^${1}: (.+)$"; shift
-    local haystack="${@}"
-    grep -Ee "${needle}" <<<"${haystack}" \
-        | sed -Ee "s/${needle}/\1/"
+    shopt -s extglob # Required to trim whitespace; see below
+    while IFS=':' read key value; do
+        value=${value##+([[:space:]])}; value=${value%%+([[:space:]])}
+
+        if [ "$key" = "${1}" ]; then
+            echo "$value"
+            return 0
+        fi
+     done
+     return 1
 }
 
 function get_content() {
     local url="${1}"
-    local content=$(curl -sL "${url}")
+    local content
+    content=$(curl -sL "${url}")
     echo "${content}"
 }
 
 function get_paged_content() {
-    headers=$(get_headers $1)
-    link_header=$(get_header "Link" "${headers[@]}")
+    shopt -s extglob
 
-    link_pattern="^<(.+)>.*next.*<(.+)>.+$"
+    while IFS=':' read key value; do
+        value=${value##+([[:space:]])}; value=${value%%+([[:space:]])}
+        if [ "$key" = "Link" ]; then link_header="$value"; fi
+    done < <(curl -sIL "${1}")
+
+    # echo "link header: ${link_header}" >&2
+
+    link_pattern="^<(.+)>.*rel=\"(.*)\".*<(.+)>.+$"
 
     next=$(sed -Ee "s/${link_pattern}/\1/" <<<"${link_header}")
-    last=$(sed -Ee "s/${link_pattern}/\2/" <<<"${link_header}")
+    relation=$(sed -Ee "s/${link_pattern}/\2/" <<<"${link_header}")
+    # last=$(sed -Ee "s/${link_pattern}/\3/" <<<"${link_header}")
 
-    if [ ! -z "${next}" ] && [ next != last ]; then
-        printf "%s\n%s" "$(get_content $1)" "$(get_paged_content $next)"
+    # echo "next: ${next}" >&2
+    # echo "last: ${last}" >&2
+    # echo "rel:  ${relation}" >&2
+
+    if [ ! -z "${next}" ] && [ "${relation}" = "next" ]; then
+        printf "%s\n%s" "$(get_content "${1}")" "$(get_paged_content "${next}")"
     else
-        printf "%s" "$(get_content $1)"
+        printf "%s" "$(get_content "${1}")"
     fi
 }
 
