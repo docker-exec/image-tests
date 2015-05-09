@@ -1,6 +1,6 @@
 # Tests for docker-exec images
 
-These tests checkout each of the docker-exec image sources, build the images tagged with "testing" and then executes two simple programs in the language provided by the image, and verifies the output is as expected.
+These tests checkout each of the docker-exec image sources, build the images tagged with "testing" and then executes several simple programs in the language provided by the image, and verifies the output is as expected.
 
 Because the images are built from scratch, the tests take a long time to run. After the tests for an image have been executed, the image is removed and the source folder deleted.
 
@@ -28,6 +28,20 @@ a b
 a b c
 x y
 z
+```
+
+### Shebang Removal
+
+This tests that a source file containing a shebang line that invokes ```dexec``` will have this stripped out. It is simply 'hello world' but the source file also contains the shebang line that instructs the shell to call ```dexec```.
+
+### Unicode
+
+This tests that the image is capable of parsing source files containing unicode and passing this to stdout.
+
+Its output is:
+
+```
+hello unicode 👾
 ```
 
 ## Requirements
